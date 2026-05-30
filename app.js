@@ -19,10 +19,47 @@ let selected = "";
 
 function pickModels() {
   const list = webllm.prebuiltAppConfig?.model_list || [];
-  const ids = list.map((m) => m.model_id || m.model).filter(Boolean);
-  const small = ids.filter((id) =>
-    /(1b|1\.5b|2b|3b)-/i.test(id) && /(instruct|-it-)/i.test(id) && /q4f(16|32)/.test(id));
-  return small.length ? small : ids.filter((id) => /(instruct|-it-)/i.test(id));
+  const ids = list.map((m) => m.model_id || m.model).filter(Boolean)
+    .filter((id) => /(instruct|-it-)/i.test(id) && /q4f(16|32)/i.test(id));
+  const bestByFamily = new Map();
+  for (const id of ids) {
+    const family = modelFamily(id);
+    if (!family) continue;
+    const current = bestByFamily.get(family);
+    if (!current || modelRank(id) < modelRank(current)) bestByFamily.set(family, id);
+  }
+  const familyOrder = ["llama", "gemma", "qwen", "phi", "olmo", "mistral", "smol", "redpajama"];
+  const curated = familyOrder.map((family) => bestByFamily.get(family)).filter(Boolean).slice(0, 5);
+  return curated.length ? curated : ids.slice(0, 5);
+}
+
+function modelFamily(id) {
+  const name = id.toLowerCase();
+  if (name.includes("llama")) return "llama";
+  if (name.includes("gemma")) return "gemma";
+  if (name.includes("qwen")) return "qwen";
+  if (name.includes("phi")) return "phi";
+  if (name.includes("olmo")) return "olmo";
+  if (name.includes("mistral")) return "mistral";
+  if (name.includes("smollm") || name.includes("smol")) return "smol";
+  if (name.includes("redpajama")) return "redpajama";
+  return "";
+}
+
+function modelRank(id) {
+  const size = id.match(/(\d+(?:\.\d+)?)B/i);
+  const params = size ? Number(size[1]) : 99;
+  const quant = /q4f16/i.test(id) ? 0 : /q4f32/i.test(id) ? 0.2 : 1;
+  const extra = /-MLC-1k/i.test(id) ? 0.1 : 0;
+  return params + quant + extra;
+}
+
+function modelLabel(id) {
+  const family = modelFamily(id);
+  const title = family ? family[0].toUpperCase() + family.slice(1) : "Model";
+  const size = id.match(/(\d+(?:\.\d+)?B)/i)?.[1] || "small";
+  const quant = id.match(/q4f(16|32)/i)?.[0] || "q4";
+  return `${title} ${size} (${quant})`;
 }
 
 function fillModels() {
@@ -35,7 +72,7 @@ function fillModels() {
     el.model.innerHTML = `<option>none available</option>`;
     return;
   }
-  el.model.innerHTML = ids.map((id) => `<option value="${id}">${id.replace(/-MLC$/, "")}</option>`).join("");
+  el.model.innerHTML = ids.map((id) => `<option value="${id}">${modelLabel(id)}</option>`).join("");
   const fav = ids.find((id) => /Llama-3.2-1B/.test(id));
   if (fav) el.model.value = fav;
 }
@@ -52,7 +89,7 @@ async function loadModel() {
         el.status.textContent = r.text || "loading";
       },
     });
-    el.status.textContent = "loaded " + id.replace(/-MLC$/, "");
+    el.status.textContent = "loaded " + modelLabel(id);
     el.status.className = "status loaded";
     el.progress.style.width = "100%";
     el.rGen.disabled = el.rExplain.disabled = el.iGen.disabled = false;
