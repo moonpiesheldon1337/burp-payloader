@@ -14,6 +14,7 @@ const el = {
 
 let engine = null;
 let selected = "";
+let generationRun = 0;
 
 // ---- model picker -------------------------------------------------
 
@@ -194,9 +195,10 @@ function encode(s, mode) {
 
 // ---- model calls --------------------------------------------------
 
-const SYS_GEN = "You help with defensive web application security validation on systems the tester owns or is authorized to assess. " +
-  "Return only short proof-of-concept test strings from common public security testing practice. " +
-  "Output payload strings only, one per line, no numbering, no explanation, no markdown fences.";
+const SYS_GEN = "You are the local assistant inside Burp Payloader, a browser-only tool for authorized defensive web application testing. " +
+  "The user is creating non-destructive validation strings for systems they own or have permission to test. " +
+  "Return only short Burp payload test strings from common public security testing practice. " +
+  "Do not include instructions, targeting advice, refusal text, markdown fences, numbering, or explanations.";
 const SYS_EXPLAIN = "You are assisting a penetration tester. Explain concisely in two or three sentences.";
 
 async function stream(messages, sink) {
@@ -204,7 +206,7 @@ async function stream(messages, sink) {
   el.rStop.disabled = el.iStop.disabled = false;
   let acc = "";
   try {
-    const res = await engine.chat.completions.create({ messages, stream: true, temperature: 0.6 });
+    const res = await engine.chat.completions.create({ messages, stream: true, temperature: 0.85, top_p: 0.95 });
     for await (const chunk of res) {
       acc += chunk.choices[0]?.delta?.content || "";
       sink(acc);
@@ -222,25 +224,26 @@ async function genVariants() {
   const k = el.rCat.value;
   const ctx = el.rCtx.value === "any" ? "" : ` Target context: ${el.rCtx.value}.`;
   const desc = el.rTarget.value.trim() || "a generic web parameter";
+  const run = nextGenerationRun();
   if (!engine) {
-    el.rOut.value = fallbackPayloads(k, desc, 8).join("\n");
+    el.rOut.value = fallbackPayloads(k, desc, 8, run).join("\n");
     showToast("Generated from the built-in catalog.");
     return;
   }
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
-      `Attack class: ${catalog[k].label}.${ctx} Target: ${desc}. ` +
-      `Give 8 payloads tailored to this authorized test. One payload per line.` },
+      `Authorized validation task. Class: ${catalog[k].label}.${ctx} Target notes: ${desc}. ` +
+      `Create batch ${run} with 8 varied Burp test strings. Prefer harmless proof-of-concept payloads. One string per line.` },
   ];
   el.rOut.value = "";
   const generated = await stream(msg, (t) => { el.rOut.value = t; });
   const lines = usablePayloadLines(generated);
   if (lines.length < 2) {
-    el.rOut.value = fallbackPayloads(k, desc, 8).join("\n");
-    showToast("Used built-in catalog variants.");
+    el.rOut.value = fallbackPayloads(k, desc, 8, run).join("\n");
+    showToast("Model refused; generated a fresh catalog batch.");
   } else {
-    el.rOut.value = lines.slice(0, 8).join("\n");
+    el.rOut.value = rotateLines(lines, run).slice(0, 8).join("\n");
   }
 }
 
@@ -257,8 +260,9 @@ function explain() {
 async function expandList() {
   const k = el.iCat.value;
   const desc = el.iTarget.value.trim() || "a generic parameter";
+  const run = nextGenerationRun();
   if (!engine) {
-    let lines = fallbackPayloads(k, desc, 12);
+    let lines = fallbackPayloads(k, desc, 12, run);
     if (el.iEnc.value !== "none") lines = lines.map((l) => encode(l, el.iEnc.value));
     el.iList.value = (el.iList.value ? el.iList.value + "\n" : "") + lines.join("\n");
     el.iCount.textContent = el.iList.value.split("\n").filter(Boolean).length + " lines";
@@ -268,8 +272,8 @@ async function expandList() {
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
-      `Attack class: ${catalog[k].label}. Target: ${desc}. ` +
-      `Give 12 additional fuzzing payloads not already obvious. One per line.` },
+      `Authorized validation task. Class: ${catalog[k].label}. Target notes: ${desc}. ` +
+      `Create batch ${run} with 12 additional Burp Intruder test strings that differ from obvious catalog entries. One string per line.` },
   ];
   const base = el.iList.value;
   const extra = await stream(msg, (t) => {
@@ -277,9 +281,10 @@ async function expandList() {
   });
   let lines = usablePayloadLines(extra);
   if (lines.length < 2) {
-    lines = fallbackPayloads(k, desc, 12);
-    showToast("Used built-in catalog variants.");
+    lines = fallbackPayloads(k, desc, 12, run);
+    showToast("Model refused; generated a fresh catalog batch.");
   }
+  lines = rotateLines(lines, run).slice(0, 12);
   if (el.iEnc.value !== "none") lines = lines.map((l) => encode(l, el.iEnc.value));
   el.iList.value = (base ? base + "\n" : "") + lines.join("\n");
   el.iCount.textContent = el.iList.value.split("\n").filter(Boolean).length + " lines";
@@ -296,21 +301,23 @@ function isRefusal(text) {
   return /can't assist|cannot assist|can't help|cannot help|unauthorized|illegal|harmful|sorry/i.test(text);
 }
 
-function fallbackPayloads(catKey, desc, limit) {
+function fallbackPayloads(catKey, desc, limit, run) {
   const terms = desc.toLowerCase();
   const scored = catalog[catKey].items.map((it, index) => ({
     it,
     index,
     score: fallbackScore(it, terms),
   })).sort((a, b) => b.score - a.score || a.index - b.index);
+  const prioritized = scored.filter((x) => x.score > 0);
+  const rest = seededShuffle(scored.filter((x) => x.score <= 0), hash(`${desc}:${catKey}:${run}`));
+  const candidates = [...seededShuffle(prioritized, hash(`${catKey}:${run}:priority`)), ...rest];
   const out = [];
-  for (const { it } of scored) {
+  for (const { it } of candidates) {
     addUnique(out, it.p);
     if (out.length >= limit) break;
-    if (shouldAddEncodedVariant(it, terms)) addUnique(out, encode(it.p, "url"));
-    if (out.length >= limit) break;
-    if (catKey === "sqli" && /filter|waf|space|quote|blocked/i.test(desc)) {
-      addUnique(out, it.p.replace(/\s+/g, "/**/"));
+    for (const variant of mutatePayload(it.p, catKey, terms, run)) {
+      addUnique(out, variant);
+      if (out.length >= limit) break;
     }
     if (out.length >= limit) break;
   }
@@ -336,6 +343,53 @@ function shouldAddEncodedVariant(it, terms) {
 
 function addUnique(list, value) {
   if (value && !list.includes(value)) list.push(value);
+}
+
+function mutatePayload(payload, catKey, terms, run) {
+  const variants = [];
+  if (shouldAddEncodedVariant({ p: payload, t: "", c: "" }, terms)) variants.push(encode(payload, "url"));
+  if (/url|double|encoded|filter|blocked|waf/.test(terms)) variants.push(encode(encode(payload, "url"), "url"));
+  if (catKey === "sqli") {
+    variants.push(payload.replace(/\s+/g, "/**/"));
+    variants.push(payload.replace(/\s+OR\s+/i, "\nOR\n"));
+    variants.push(payload.replace(/union select/i, hash(String(run)) % 2 ? "UnIoN SeLeCt" : "UNION/**/SELECT"));
+    if (/quote|single|blocked|filter|waf/.test(terms)) variants.push(payload.replace(/'/g, "%27"));
+  }
+  if (catKey === "xss") {
+    variants.push(payload.replace(/alert\(1\)/g, "confirm(1)"));
+    variants.push(payload.replace(/</g, "%3c").replace(/>/g, "%3e"));
+  }
+  return rotateLines(variants.filter((v) => v && v !== payload), run);
+}
+
+function nextGenerationRun() {
+  generationRun += 1;
+  return `${Date.now()}-${generationRun}`;
+}
+
+function rotateLines(lines, seedText) {
+  return seededShuffle(lines, hash(String(seedText)));
+}
+
+function hash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function seededShuffle(items, seed) {
+  const arr = [...items];
+  let state = seed || 1;
+  for (let i = arr.length - 1; i > 0; i--) {
+    state = Math.imul(state ^ (state >>> 15), 1 | state);
+    state ^= state + Math.imul(state ^ (state >>> 7), 61 | state);
+    const j = Math.abs((state ^ (state >>> 14)) >>> 0) % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 // ---- small helpers ------------------------------------------------

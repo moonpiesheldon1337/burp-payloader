@@ -66,7 +66,7 @@ Notes: suspected MySQL login check, single quotes appear to be filtered</textare
               <button id="r-explain" disabled title="Load the local assistant, then click a catalog payload.">Explain selected</button>
               <button id="r-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Generate variants turns the notes above into extra test strings. If the local assistant refuses, Burp Payloader falls back to catalog-based variants.</p>
+            <p class="hint">Generate variants asks the local assistant first. If it refuses, the app creates a fresh rotated batch from the catalog instead of repeating the same list.</p>
             <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
             <div class="gap"><button id="r-copy">Copy output</button></div>
           </div>
@@ -126,7 +126,7 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
               <button id="i-gen" class="primary" title="Add catalog-based variants, or model-assisted variants when loaded.">Add variants</button>
               <button id="i-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Add variants appends extra lines to the payload set. If the local assistant refuses, Burp Payloader falls back to catalog-based variants.</p>
+            <p class="hint">Add variants asks the local assistant first. If it refuses, the app appends a fresh rotated batch from the catalog.</p>
           </div>
         </div>
       </div>
@@ -153,8 +153,8 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
     <p>Use Intruder when you want a list. Pick filters, choose an encoding if needed, then copy or download the list for a Burp Intruder payload set.</p>
 
     <h3>Why Generate is disabled</h3>
-    <p><strong>Generate variants</strong> and <strong>Add variants</strong> work even without the model by using the built-in catalog. If the optional local assistant is loaded, the app asks it first; if it refuses or returns nothing useful, the app falls back to catalog-based variants.</p>
-    <p>If your browser does not support WebGPU, generation still works from the catalog. Only model-assisted wording is unavailable.</p>
+    <p><strong>Generate variants</strong> and <strong>Add variants</strong> ask the local assistant for new test strings when a model is loaded. Some small browser models still refuse security-testing requests even when they are authorized. When that happens, the app detects the refusal and creates a fresh rotated batch from the catalog.</p>
+    <p>If your browser does not support WebGPU, generation still works from the catalog. Each click rotates and mutates the batch so you are not stuck with the same output.</p>
 
     <h3>What variants are</h3>
     <p>Variants are extra payload ideas based on the notes in the text box, such as a JSON login request, a blocked quote character, or a reflected search parameter.</p>
@@ -169,6 +169,6 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script type="module" src="app.js?v=20260530-fallback"></script>
+<script type="module" src="app.js?v=20260530-ai-rotation"></script>
 </body>
 </html>
