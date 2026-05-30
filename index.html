@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burp Payloader</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <h1>Burp <span>Payloader</span></h1>
+  <span class="sub">Burp Repeater and Intruder payload catalog for authorized testing</span>
+</header>
+
+<div class="engine">
+  <label for="model">Local assistant</label>
+  <select id="model"></select>
+  <button id="load">Load</button>
+  <span id="status" class="status">Optional. The catalog and encoders work without it.</span>
+  <span class="bar"><i id="progress"></i></span>
+</div>
+
+<nav class="tabs">
+  <button data-view="repeater" class="active">Repeater</button>
+  <button data-view="intruder">Intruder</button>
+</nav>
+
+<main>
+  <section id="repeater" class="view active">
+    <div class="controls">
+      <div class="field">
+        <label for="r-cat">Class</label>
+        <select id="r-cat"></select>
+      </div>
+      <div class="field">
+        <label for="r-tech">Technique</label>
+        <select id="r-tech"></select>
+      </div>
+      <div class="field">
+        <label for="r-ctx">Context</label>
+        <select id="r-ctx"></select>
+      </div>
+      <div class="field grow">
+        <label for="r-search">Search</label>
+        <input id="r-search" type="search" placeholder="payload, note, technique">
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="box">
+        <h3>Catalog <span id="r-count" class="tag"></span></h3>
+        <div class="body"><ul id="r-rows" class="rows"></ul></div>
+      </div>
+
+      <div class="box">
+        <h3>Adapt to target</h3>
+        <div class="body">
+          <textarea id="r-target" placeholder="POST /login, JSON body, suspected MySQL, quote filtering"></textarea>
+          <div class="gap">
+            <button id="r-gen" class="primary" disabled>Generate variants</button>
+            <button id="r-explain" disabled>Explain selected</button>
+            <button id="r-stop" disabled>Stop</button>
+          </div>
+          <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
+          <div class="gap"><button id="r-copy">Copy output</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="intruder" class="view">
+    <div class="controls">
+      <div class="field">
+        <label for="i-cat">Class</label>
+        <select id="i-cat"></select>
+      </div>
+      <div class="field">
+        <label for="i-tech">Technique</label>
+        <select id="i-tech"></select>
+      </div>
+      <div class="field grow">
+        <label for="i-search">Search</label>
+        <input id="i-search" type="search" placeholder="payload, note, technique">
+      </div>
+      <div class="field">
+        <label for="i-enc">Encoding</label>
+        <select id="i-enc">
+          <option value="none">none</option>
+          <option value="url">URL encode</option>
+          <option value="durl">double URL encode</option>
+          <option value="b64">base64</option>
+          <option value="html">HTML entities</option>
+        </select>
+      </div>
+      <div class="field">
+        <button id="i-build" class="primary">Build list</button>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="box">
+        <h3>Payload set <span id="i-count" class="tag"></span></h3>
+        <div class="body">
+          <textarea id="i-list" class="out" placeholder="One payload per line"></textarea>
+          <div class="gap">
+            <button id="i-copy">Copy</button>
+            <button id="i-dl">Download .txt</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3>Expand locally</h3>
+        <div class="body">
+          <textarea id="i-target" placeholder="Parameter, endpoint, content type, and relevant filters"></textarea>
+          <div class="gap">
+            <button id="i-gen" class="primary" disabled>Add variants</button>
+            <button id="i-stop" disabled>Stop</button>
+          </div>
+          <p class="hint">Generated lines are appended to the payload set.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Everything runs locally. If loaded, the assistant is downloaded once through WebGPU and cached; request details stay in the browser.
+  Use only on systems you own or have explicit permission to test.
+  <br>WebLLM: <code>@mlc-ai/web-llm</code>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
