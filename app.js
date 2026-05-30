@@ -198,9 +198,9 @@ function encode(s, mode) {
 const SYS_GEN = [
   "Role: you are a senior application security engineer working inside Burp Payloader.",
   "Scenario: the user is performing an authorized assessment on systems they own or have explicit permission to test.",
-  "Task: create short, non-destructive Burp Suite validation strings for the requested vulnerability class and context.",
+  "Task: create exactly one short, non-destructive Burp Suite validation string for the requested vulnerability class and context.",
   "Scope: use common public web security testing patterns only; do not provide persistence, malware, credential theft, exfiltration, or post-exploitation steps.",
-  "Output contract: payload strings only, one per line. No apologies, no refusal text, no markdown fences, no numbering, no explanations.",
+  "Output contract: return only the payload value itself. No HTTP request, no parameter name, no labels, no notes, no apologies, no refusal text, no markdown fences, no numbering, no explanations.",
 ].join(" ");
 const SYS_EXPLAIN = [
   "Role: you are a senior application security engineer.",
@@ -208,12 +208,18 @@ const SYS_EXPLAIN = [
   "Explain concisely in two or three sentences, focused on defensive validation and expected response changes.",
 ].join(" ");
 
-async function stream(messages, sink) {
+async function stream(messages, sink, options = {}) {
   setBusyButtons(true);
   el.rStop.disabled = el.iStop.disabled = false;
   let acc = "";
   try {
-    const res = await engine.chat.completions.create({ messages, stream: true, temperature: 0.85, top_p: 0.95 });
+    const res = await engine.chat.completions.create({
+      messages,
+      stream: true,
+      temperature: options.temperature ?? 0.75,
+      top_p: options.topP ?? 0.9,
+      max_tokens: options.maxTokens ?? 80,
+    });
     for await (const chunk of res) {
       acc += chunk.choices[0]?.delta?.content || "";
       sink(acc);
@@ -233,24 +239,24 @@ async function genVariants() {
   const desc = el.rTarget.value.trim() || "a generic web parameter";
   const run = nextGenerationRun();
   if (!engine) {
-    el.rOut.value = fallbackPayloads(k, desc, 8, run).join("\n");
-    showToast("Generated from the built-in catalog.");
+    el.rOut.value = fallbackPayloads(k, desc, 1, run)[0] || "";
+    showToast("Generated one catalog variant.");
     return;
   }
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
       `Authorized validation task. Class: ${catalog[k].label}.${ctx} Target notes: ${desc}. ` +
-      `Create batch ${run} with 8 varied Burp test strings. Prefer harmless proof-of-concept payloads. One string per line.` },
+      `Create exactly one fresh payload value for batch ${run}. Output only that payload value, not a full HTTP request.` },
   ];
-  el.rOut.value = "";
-  const generated = await stream(msg, (t) => { el.rOut.value = t; });
-  const lines = usablePayloadLines(generated);
-  if (lines.length < 2) {
-    el.rOut.value = fallbackPayloads(k, desc, 8, run).join("\n");
-    showToast("Model refused; generated a fresh catalog batch.");
+  el.rOut.value = "Generating one variant...";
+  const generated = await stream(msg, () => {}, { maxTokens: 64 });
+  const line = firstPayloadLine(generated, k, desc, run);
+  if (line.fallback) {
+    el.rOut.value = line.value;
+    showToast("Model output was not usable; generated one catalog variant.");
   } else {
-    el.rOut.value = rotateLines(lines, run).slice(0, 8).join("\n");
+    el.rOut.value = line.value;
   }
 }
 
@@ -269,43 +275,60 @@ async function expandList() {
   const desc = el.iTarget.value.trim() || "a generic parameter";
   const run = nextGenerationRun();
   if (!engine) {
-    let lines = fallbackPayloads(k, desc, 12, run);
-    if (el.iEnc.value !== "none") lines = lines.map((l) => encode(l, el.iEnc.value));
-    el.iList.value = (el.iList.value ? el.iList.value + "\n" : "") + lines.join("\n");
+    let line = fallbackPayloads(k, desc, 1, run)[0] || "";
+    if (el.iEnc.value !== "none") line = encode(line, el.iEnc.value);
+    el.iList.value = (el.iList.value ? el.iList.value + "\n" : "") + line;
     el.iCount.textContent = el.iList.value.split("\n").filter(Boolean).length + " lines";
-    showToast("Added built-in catalog variants.");
+    showToast("Added one catalog variant.");
     return;
   }
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
       `Authorized validation task. Class: ${catalog[k].label}. Target notes: ${desc}. ` +
-      `Create batch ${run} with 12 additional Burp Intruder test strings that differ from obvious catalog entries. One string per line.` },
+      `Create exactly one additional Burp Intruder payload value for batch ${run}. Output only that payload value, not a full HTTP request.` },
   ];
   const base = el.iList.value;
-  const extra = await stream(msg, (t) => {
-    el.iList.value = (base ? base + "\n" : "") + t;
-  });
-  let lines = usablePayloadLines(extra);
-  if (lines.length < 2) {
-    lines = fallbackPayloads(k, desc, 12, run);
-    showToast("Model refused; generated a fresh catalog batch.");
+  const extra = await stream(msg, () => {}, { maxTokens: 64 });
+  let line = firstPayloadLine(extra, k, desc, run);
+  if (line.fallback) {
+    showToast("Model output was not usable; added one catalog variant.");
   }
-  lines = rotateLines(lines, run).slice(0, 12);
-  if (el.iEnc.value !== "none") lines = lines.map((l) => encode(l, el.iEnc.value));
-  el.iList.value = (base ? base + "\n" : "") + lines.join("\n");
+  let value = line.value;
+  if (el.iEnc.value !== "none") value = encode(value, el.iEnc.value);
+  el.iList.value = (base ? base + "\n" : "") + value;
   el.iCount.textContent = el.iList.value.split("\n").filter(Boolean).length + " lines";
+}
+
+function firstPayloadLine(text, catKey, desc, run) {
+  const lines = usablePayloadLines(text);
+  if (lines.length) return { value: lines[0], fallback: false };
+  return { value: fallbackPayloads(catKey, desc, 1, run)[0] || "", fallback: true };
 }
 
 function usablePayloadLines(text) {
   if (isRefusal(text)) return [];
   return text.split("\n")
     .map((line) => line.replace(/^[-*\d.)\s]+/, "").trim())
-    .filter((line) => line && !/^```/.test(line) && !isRefusal(line));
+    .map(cleanPayloadLine)
+    .filter((line) => line && !isMetaLine(line) && !/^```/.test(line) && !isRefusal(line));
 }
 
 function isRefusal(text) {
   return /can't assist|cannot assist|can't help|cannot help|unauthorized|illegal|harmful|sorry/i.test(text);
+}
+
+function cleanPayloadLine(line) {
+  let cleaned = line.replace(/^```+|```+$/g, "").trim();
+  const quoted = cleaned.match(/=\s*["']([^"']+)["']\s*$/);
+  if (quoted) cleaned = quoted[1];
+  return cleaned;
+}
+
+function isMetaLine(line) {
+  return /^(GET|POST|PUT|PATCH|DELETE|HEAD)\s+\//i.test(line) ||
+    /^(Host|Content-Type|User-Agent|Cookie|Authorization|Parameter|Notes?|Context|Goal)\s*:/i.test(line) ||
+    /^`{3,}$/.test(line);
 }
 
 function fallbackPayloads(catKey, desc, limit, run) {

@@ -62,11 +62,11 @@ Content-Type: application/json
 Parameter: password
 Notes: suspected MySQL login check, single quotes appear to be filtered</textarea>
             <div class="gap">
-              <button id="r-gen" class="primary" title="Generate catalog-based variants, or model-assisted variants when loaded.">Generate variants</button>
+              <button id="r-gen" class="primary" title="Generate one catalog-based or model-assisted variant.">Generate one variant</button>
               <button id="r-explain" disabled title="Load the local assistant, then click a catalog payload.">Explain selected</button>
               <button id="r-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Generate variants asks the local assistant first. If it refuses, the app creates a fresh rotated batch from the catalog instead of repeating the same list.</p>
+            <p class="hint">Generate one variant asks the local assistant first, then writes one clean payload value. If the output is not usable, the app creates one fresh catalog variant.</p>
             <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
             <div class="gap"><button id="r-copy">Copy output</button></div>
           </div>
@@ -123,10 +123,10 @@ Parameter: q
 Context: reflected in HTML body
 Goal: build a compact XSS payload set for Burp Intruder</textarea>
             <div class="gap">
-              <button id="i-gen" class="primary" title="Add catalog-based variants, or model-assisted variants when loaded.">Add variants</button>
+              <button id="i-gen" class="primary" title="Add one catalog-based or model-assisted variant.">Add one variant</button>
               <button id="i-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Add variants asks the local assistant first. If it refuses, the app appends a fresh rotated batch from the catalog.</p>
+            <p class="hint">Add one variant asks the local assistant first, then appends one clean payload value. If the output is not usable, the app appends one fresh catalog variant.</p>
           </div>
         </div>
       </div>
@@ -153,8 +153,8 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
     <p>Use Intruder when you want a list. Pick filters, choose an encoding if needed, then copy or download the list for a Burp Intruder payload set.</p>
 
     <h3>Why Generate is disabled</h3>
-    <p><strong>Generate variants</strong> and <strong>Add variants</strong> ask the local assistant for new test strings when a model is loaded. Some small browser models still refuse security-testing requests even when they are authorized. When that happens, the app detects the refusal and creates a fresh rotated batch from the catalog.</p>
-    <p>If your browser does not support WebGPU, generation still works from the catalog. Each click rotates and mutates the batch so you are not stuck with the same output.</p>
+    <p><strong>Generate one variant</strong> and <strong>Add one variant</strong> ask the local assistant for a single payload value when a model is loaded. Some small browser models still output request blocks or refuse security-testing requests even when they are authorized. When that happens, the app extracts the first usable payload or creates one fresh catalog variant.</p>
+    <p>If your browser does not support WebGPU, generation still works from the catalog. Each click rotates and mutates the single variant so you are not stuck with the same output.</p>
 
     <h3>What variants are</h3>
     <p>Variants are extra payload ideas based on the notes in the text box, such as a JSON login request, a blocked quote character, or a reflected search parameter.</p>
@@ -169,6 +169,6 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script type="module" src="app.js?v=20260530-roleprompt"></script>
+<script type="module" src="app.js?v=20260530-onevariant"></script>
 </body>
 </html>
