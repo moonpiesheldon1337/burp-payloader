@@ -26,109 +26,139 @@
   <button data-view="intruder">Intruder</button>
 </nav>
 
-<main>
-  <section id="repeater" class="view active">
-    <div class="controls">
-      <div class="field">
-        <label for="r-cat">Class</label>
-        <select id="r-cat"></select>
-      </div>
-      <div class="field">
-        <label for="r-tech">Technique</label>
-        <select id="r-tech"></select>
-      </div>
-      <div class="field">
-        <label for="r-ctx">Context</label>
-        <select id="r-ctx"></select>
-      </div>
-      <div class="field grow">
-        <label for="r-search">Search</label>
-        <input id="r-search" type="search" placeholder="payload, note, technique">
-      </div>
-    </div>
-
-    <div class="split">
-      <div class="box">
-        <h3>Catalog <span id="r-count" class="tag"></span></h3>
-        <div class="body"><ul id="r-rows" class="rows"></ul></div>
+<main class="workspace">
+  <div class="views">
+    <section id="repeater" class="view active">
+      <div class="controls">
+        <div class="field">
+          <label for="r-cat">Class</label>
+          <select id="r-cat"></select>
+        </div>
+        <div class="field">
+          <label for="r-tech">Technique</label>
+          <select id="r-tech"></select>
+        </div>
+        <div class="field">
+          <label for="r-ctx">Context</label>
+          <select id="r-ctx"></select>
+        </div>
+        <div class="field grow">
+          <label for="r-search">Search</label>
+          <input id="r-search" type="search" placeholder="payload, note, technique">
+        </div>
       </div>
 
-      <div class="box">
-        <h3>Adapt to target</h3>
-        <div class="body">
-          <textarea id="r-target" placeholder="POST /login, JSON body, suspected MySQL, quote filtering">POST /login
+      <div class="split">
+        <div class="box">
+          <h3>Catalog <span id="r-count" class="tag"></span></h3>
+          <div class="body"><ul id="r-rows" class="rows"></ul></div>
+        </div>
+
+        <div class="box">
+          <h3>Adapt to target</h3>
+          <div class="body">
+            <textarea id="r-target" placeholder="POST /login, JSON body, suspected MySQL, quote filtering">POST /login
 Content-Type: application/json
 Parameter: password
 Notes: suspected MySQL login check, single quotes appear to be filtered</textarea>
-          <div class="gap">
-            <button id="r-gen" class="primary" disabled>Generate variants</button>
-            <button id="r-explain" disabled>Explain selected</button>
-            <button id="r-stop" disabled>Stop</button>
-          </div>
-          <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
-          <div class="gap"><button id="r-copy">Copy output</button></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="intruder" class="view">
-    <div class="controls">
-      <div class="field">
-        <label for="i-cat">Class</label>
-        <select id="i-cat"></select>
-      </div>
-      <div class="field">
-        <label for="i-tech">Technique</label>
-        <select id="i-tech"></select>
-      </div>
-      <div class="field grow">
-        <label for="i-search">Search</label>
-        <input id="i-search" type="search" placeholder="payload, note, technique">
-      </div>
-      <div class="field">
-        <label for="i-enc">Encoding</label>
-        <select id="i-enc">
-          <option value="none">none</option>
-          <option value="url">URL encode</option>
-          <option value="durl">double URL encode</option>
-          <option value="b64">base64</option>
-          <option value="html">HTML entities</option>
-        </select>
-      </div>
-      <div class="field">
-        <button id="i-build" class="primary">Build list</button>
-      </div>
-    </div>
-
-    <div class="split">
-      <div class="box">
-        <h3>Payload set <span id="i-count" class="tag"></span></h3>
-        <div class="body">
-          <textarea id="i-list" class="out" placeholder="One payload per line"></textarea>
-          <div class="gap">
-            <button id="i-copy">Copy</button>
-            <button id="i-dl">Download .txt</button>
+            <div class="gap">
+              <button id="r-gen" class="primary" disabled title="Load the local assistant first.">Generate variants</button>
+              <button id="r-explain" disabled title="Load the local assistant, then click a catalog payload.">Explain selected</button>
+              <button id="r-stop" disabled>Stop</button>
+            </div>
+            <p class="hint">Generate variants turns the notes above into extra test strings. Load the local assistant first; the catalog still works without it.</p>
+            <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
+            <div class="gap"><button id="r-copy">Copy output</button></div>
           </div>
         </div>
       </div>
+    </section>
 
-      <div class="box">
-        <h3>Expand locally</h3>
-        <div class="body">
-          <textarea id="i-target" placeholder="Parameter, endpoint, content type, and relevant filters">GET /search?q=FUZZ
+    <section id="intruder" class="view">
+      <div class="controls">
+        <div class="field">
+          <label for="i-cat">Class</label>
+          <select id="i-cat"></select>
+        </div>
+        <div class="field">
+          <label for="i-tech">Technique</label>
+          <select id="i-tech"></select>
+        </div>
+        <div class="field grow">
+          <label for="i-search">Search</label>
+          <input id="i-search" type="search" placeholder="payload, note, technique">
+        </div>
+        <div class="field">
+          <label for="i-enc">Encoding</label>
+          <select id="i-enc">
+            <option value="none">none</option>
+            <option value="url">URL encode</option>
+            <option value="durl">double URL encode</option>
+            <option value="b64">base64</option>
+            <option value="html">HTML entities</option>
+          </select>
+        </div>
+        <div class="field">
+          <button id="i-build" class="primary">Build list</button>
+        </div>
+      </div>
+
+      <div class="split">
+        <div class="box">
+          <h3>Payload set <span id="i-count" class="tag"></span></h3>
+          <div class="body">
+            <textarea id="i-list" class="out" placeholder="One payload per line"></textarea>
+            <div class="gap">
+              <button id="i-copy">Copy</button>
+              <button id="i-dl">Download .txt</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="box">
+          <h3>Expand locally</h3>
+          <div class="body">
+            <textarea id="i-target" placeholder="Parameter, endpoint, content type, and relevant filters">GET /search?q=FUZZ
 Parameter: q
 Context: reflected in HTML body
 Goal: build a compact XSS payload set for Burp Intruder</textarea>
-          <div class="gap">
-            <button id="i-gen" class="primary" disabled>Add variants</button>
-            <button id="i-stop" disabled>Stop</button>
+            <div class="gap">
+              <button id="i-gen" class="primary" disabled title="Load the local assistant first.">Add variants</button>
+              <button id="i-stop" disabled>Stop</button>
+            </div>
+            <p class="hint">Add variants appends extra lines to the payload set. Load the local assistant first; Build list works without it.</p>
           </div>
-          <p class="hint">Generated lines are appended to the payload set.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
+
+  <aside class="guide" aria-label="How to use Burp Payloader">
+    <h2>What this does</h2>
+    <p>Burp Payloader gives you ready-made payloads for authorized web testing. Pick a vulnerability class, copy a payload, and paste it into Burp Suite Repeater or Intruder.</p>
+
+    <h3>Quick start</h3>
+    <ol>
+      <li>Choose a class such as SQL injection, XSS, or SSRF.</li>
+      <li>Filter by technique or search for a word you recognize.</li>
+      <li>Click <strong>copy</strong> next to a payload.</li>
+      <li>Paste it into the request parameter you are testing in Burp.</li>
+      <li>Look for a changed response, error, delay, redirect, or reflected text.</li>
+    </ol>
+
+    <h3>Repeater tab</h3>
+    <p>Use Repeater when you are testing one request by hand. Copy one payload at a time and watch how the server response changes.</p>
+
+    <h3>Intruder tab</h3>
+    <p>Use Intruder when you want a list. Pick filters, choose an encoding if needed, then copy or download the list for a Burp Intruder payload set.</p>
+
+    <h3>Why Generate is disabled</h3>
+    <p><strong>Generate variants</strong> and <strong>Add variants</strong> need the optional local assistant. Click <strong>Load</strong> at the top first. Your browser will download a WebGPU model once, then run it locally.</p>
+    <p>If your browser does not support WebGPU, those buttons stay disabled. The payload catalog, search, copy, encoding, and download features still work.</p>
+
+    <h3>What variants are</h3>
+    <p>Variants are extra payload ideas based on the notes in the text box, such as a JSON login request, a blocked quote character, or a reflected search parameter.</p>
+  </aside>
 </main>
 
 <footer>
