@@ -194,8 +194,9 @@ function encode(s, mode) {
 
 // ---- model calls --------------------------------------------------
 
-const SYS_GEN = "You produce web application security test payloads for an authorised penetration test. " +
-  "Output payloads only, one per line, no numbering, no explanation, no markdown fences.";
+const SYS_GEN = "You help with defensive web application security validation on systems the tester owns or is authorized to assess. " +
+  "Return only short proof-of-concept test strings from common public security testing practice. " +
+  "Output payload strings only, one per line, no numbering, no explanation, no markdown fences.";
 const SYS_EXPLAIN = "You are assisting a penetration tester. Explain concisely in two or three sentences.";
 
 async function stream(messages, sink) {
@@ -217,10 +218,15 @@ async function stream(messages, sink) {
   return acc;
 }
 
-function genVariants() {
+async function genVariants() {
   const k = el.rCat.value;
   const ctx = el.rCtx.value === "any" ? "" : ` Target context: ${el.rCtx.value}.`;
   const desc = el.rTarget.value.trim() || "a generic web parameter";
+  if (!engine) {
+    el.rOut.value = fallbackPayloads(k, desc, 8).join("\n");
+    showToast("Generated from the built-in catalog.");
+    return;
+  }
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
@@ -228,7 +234,14 @@ function genVariants() {
       `Give 8 payloads tailored to this authorized test. One payload per line.` },
   ];
   el.rOut.value = "";
-  stream(msg, (t) => { el.rOut.value = t; });
+  const generated = await stream(msg, (t) => { el.rOut.value = t; });
+  const lines = usablePayloadLines(generated);
+  if (lines.length < 2) {
+    el.rOut.value = fallbackPayloads(k, desc, 8).join("\n");
+    showToast("Used built-in catalog variants.");
+  } else {
+    el.rOut.value = lines.slice(0, 8).join("\n");
+  }
 }
 
 function explain() {
@@ -244,6 +257,14 @@ function explain() {
 async function expandList() {
   const k = el.iCat.value;
   const desc = el.iTarget.value.trim() || "a generic parameter";
+  if (!engine) {
+    let lines = fallbackPayloads(k, desc, 12);
+    if (el.iEnc.value !== "none") lines = lines.map((l) => encode(l, el.iEnc.value));
+    el.iList.value = (el.iList.value ? el.iList.value + "\n" : "") + lines.join("\n");
+    el.iCount.textContent = el.iList.value.split("\n").filter(Boolean).length + " lines";
+    showToast("Added built-in catalog variants.");
+    return;
+  }
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
@@ -254,18 +275,75 @@ async function expandList() {
   const extra = await stream(msg, (t) => {
     el.iList.value = (base ? base + "\n" : "") + t;
   });
-  if (el.iEnc.value !== "none") {
-    const lines = extra.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => encode(l, el.iEnc.value));
-    el.iList.value = (base ? base + "\n" : "") + lines.join("\n");
+  let lines = usablePayloadLines(extra);
+  if (lines.length < 2) {
+    lines = fallbackPayloads(k, desc, 12);
+    showToast("Used built-in catalog variants.");
   }
+  if (el.iEnc.value !== "none") lines = lines.map((l) => encode(l, el.iEnc.value));
+  el.iList.value = (base ? base + "\n" : "") + lines.join("\n");
   el.iCount.textContent = el.iList.value.split("\n").filter(Boolean).length + " lines";
+}
+
+function usablePayloadLines(text) {
+  if (isRefusal(text)) return [];
+  return text.split("\n")
+    .map((line) => line.replace(/^[-*\d.)\s]+/, "").trim())
+    .filter((line) => line && !/^```/.test(line) && !isRefusal(line));
+}
+
+function isRefusal(text) {
+  return /can't assist|cannot assist|can't help|cannot help|unauthorized|illegal|harmful|sorry/i.test(text);
+}
+
+function fallbackPayloads(catKey, desc, limit) {
+  const terms = desc.toLowerCase();
+  const scored = catalog[catKey].items.map((it, index) => ({
+    it,
+    index,
+    score: fallbackScore(it, terms),
+  })).sort((a, b) => b.score - a.score || a.index - b.index);
+  const out = [];
+  for (const { it } of scored) {
+    addUnique(out, it.p);
+    if (out.length >= limit) break;
+    if (shouldAddEncodedVariant(it, terms)) addUnique(out, encode(it.p, "url"));
+    if (out.length >= limit) break;
+    if (catKey === "sqli" && /filter|waf|space|quote|blocked/i.test(desc)) {
+      addUnique(out, it.p.replace(/\s+/g, "/**/"));
+    }
+    if (out.length >= limit) break;
+  }
+  return out.slice(0, limit);
+}
+
+function fallbackScore(it, terms) {
+  let score = 0;
+  const haystack = searchable(it);
+  for (const token of terms.split(/[^a-z0-9]+/i).filter((t) => t.length > 2)) {
+    if (haystack.includes(token)) score += 2;
+  }
+  if (/filter|blocked|waf|quote|space/.test(terms) && /bypass|evasion|filter|comment|case/.test(haystack)) score += 6;
+  if (/json/.test(terms) && /auth|boolean|nosql/.test(haystack)) score += 2;
+  if (/html|reflect|body/.test(terms) && /reflected|html|attribute|dom/.test(haystack)) score += 4;
+  if (/time|delay|blind/.test(terms) && /time|sleep|delay|blind/.test(haystack)) score += 5;
+  return score;
+}
+
+function shouldAddEncodedVariant(it, terms) {
+  return /url|encoded|encode|filter|blocked|waf/.test(terms) || /bypass|evasion/.test(searchable(it));
+}
+
+function addUnique(list, value) {
+  if (value && !list.includes(value)) list.push(value);
 }
 
 // ---- small helpers ------------------------------------------------
 
 function setBusyButtons(busy) {
   const ready = engine !== null;
-  el.rGen.disabled = el.rExplain.disabled = el.iGen.disabled = busy || !ready;
+  el.rGen.disabled = el.iGen.disabled = busy;
+  el.rExplain.disabled = busy || !ready;
   el.load.disabled = busy;
 }
 

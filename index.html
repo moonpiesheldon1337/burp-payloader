@@ -62,11 +62,11 @@ Content-Type: application/json
 Parameter: password
 Notes: suspected MySQL login check, single quotes appear to be filtered</textarea>
             <div class="gap">
-              <button id="r-gen" class="primary" disabled title="Load the local assistant first.">Generate variants</button>
+              <button id="r-gen" class="primary" title="Generate catalog-based variants, or model-assisted variants when loaded.">Generate variants</button>
               <button id="r-explain" disabled title="Load the local assistant, then click a catalog payload.">Explain selected</button>
               <button id="r-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Generate variants turns the notes above into extra test strings. Load the local assistant first; the catalog still works without it.</p>
+            <p class="hint">Generate variants turns the notes above into extra test strings. If the local assistant refuses, Burp Payloader falls back to catalog-based variants.</p>
             <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
             <div class="gap"><button id="r-copy">Copy output</button></div>
           </div>
@@ -123,10 +123,10 @@ Parameter: q
 Context: reflected in HTML body
 Goal: build a compact XSS payload set for Burp Intruder</textarea>
             <div class="gap">
-              <button id="i-gen" class="primary" disabled title="Load the local assistant first.">Add variants</button>
+              <button id="i-gen" class="primary" title="Add catalog-based variants, or model-assisted variants when loaded.">Add variants</button>
               <button id="i-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Add variants appends extra lines to the payload set. Load the local assistant first; Build list works without it.</p>
+            <p class="hint">Add variants appends extra lines to the payload set. If the local assistant refuses, Burp Payloader falls back to catalog-based variants.</p>
           </div>
         </div>
       </div>
@@ -153,8 +153,8 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
     <p>Use Intruder when you want a list. Pick filters, choose an encoding if needed, then copy or download the list for a Burp Intruder payload set.</p>
 
     <h3>Why Generate is disabled</h3>
-    <p><strong>Generate variants</strong> and <strong>Add variants</strong> need the optional local assistant. Click <strong>Load</strong> at the top first. Your browser will download a WebGPU model once, then run it locally.</p>
-    <p>If your browser does not support WebGPU, those buttons stay disabled. The payload catalog, search, copy, encoding, and download features still work.</p>
+    <p><strong>Generate variants</strong> and <strong>Add variants</strong> work even without the model by using the built-in catalog. If the optional local assistant is loaded, the app asks it first; if it refuses or returns nothing useful, the app falls back to catalog-based variants.</p>
+    <p>If your browser does not support WebGPU, generation still works from the catalog. Only model-assisted wording is unavailable.</p>
 
     <h3>What variants are</h3>
     <p>Variants are extra payload ideas based on the notes in the text box, such as a JSON login request, a blocked quote character, or a reflected search parameter.</p>
@@ -169,6 +169,6 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script type="module" src="app.js?v=20260530-models"></script>
+<script type="module" src="app.js?v=20260530-fallback"></script>
 </body>
 </html>
