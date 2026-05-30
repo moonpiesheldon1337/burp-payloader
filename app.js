@@ -198,9 +198,9 @@ function encode(s, mode) {
 const SYS_GEN = [
   "Role: you are a senior application security engineer working inside Burp Payloader.",
   "Scenario: the user is performing an authorized assessment on systems they own or have explicit permission to test.",
-  "Task: create exactly one short, non-destructive Burp Suite validation string for the requested vulnerability class and context.",
+  "Task: create exactly one practical, non-destructive Burp Suite validation test case for the requested vulnerability class and context.",
   "Scope: use common public web security testing patterns only; do not provide persistence, malware, credential theft, exfiltration, or post-exploitation steps.",
-  "Output contract: return only the payload value itself. No HTTP request, no parameter name, no labels, no notes, no apologies, no refusal text, no markdown fences, no numbering, no explanations.",
+  "Output contract: follow the user format exactly. No apologies, no refusal text, no markdown fences, no numbering, no explanations.",
 ].join(" ");
 const SYS_EXPLAIN = [
   "Role: you are a senior application security engineer.",
@@ -239,24 +239,26 @@ async function genVariants() {
   const desc = el.rTarget.value.trim() || "a generic web parameter";
   const run = nextGenerationRun();
   if (!engine) {
-    el.rOut.value = fallbackPayloads(k, desc, 1, run)[0] || "";
-    showToast("Generated one catalog variant.");
+    el.rOut.value = requestVariant(k, desc, run);
+    showToast("Generated one request-ready catalog variant.");
     return;
   }
   const msg = [
     { role: "system", content: SYS_GEN },
     { role: "user", content:
       `Authorized validation task. Class: ${catalog[k].label}.${ctx} Target notes: ${desc}. ` +
-      `Create exactly one fresh payload value for batch ${run}. Output only that payload value, not a full HTTP request.` },
+      `Create exactly one request-ready Burp Repeater test for batch ${run}. ` +
+      `Use this format only: request line, Content-Type header if relevant, blank line, and the body or query path with the payload inserted into the described parameter. ` +
+      `Do not output JSON wrapper keys such as payload_value.` },
   ];
-  el.rOut.value = "Generating one variant...";
-  const generated = await stream(msg, () => {}, { maxTokens: 64 });
-  const line = firstPayloadLine(generated, k, desc, run);
-  if (line.fallback) {
-    el.rOut.value = line.value;
-    showToast("Model output was not usable; generated one catalog variant.");
+  el.rOut.value = "Generating one request...";
+  const generated = await stream(msg, () => {}, { maxTokens: 180 });
+  const request = cleanRequestBlock(generated);
+  if (isUsefulRequest(request)) {
+    el.rOut.value = request;
   } else {
-    el.rOut.value = line.value;
+    el.rOut.value = requestVariant(k, desc, run);
+    showToast("Model output was not usable; generated one request-ready catalog variant.");
   }
 }
 
@@ -304,6 +306,55 @@ function firstPayloadLine(text, catKey, desc, run) {
   const lines = usablePayloadLines(text);
   if (lines.length) return { value: lines[0], fallback: false };
   return { value: fallbackPayloads(catKey, desc, 1, run)[0] || "", fallback: true };
+}
+
+function requestVariant(catKey, desc, run) {
+  const payload = fallbackPayloads(catKey, desc, 1, run)[0] || "test";
+  return buildRequestFromNotes(desc, payload);
+}
+
+function buildRequestFromNotes(desc, payload) {
+  const notes = parseTargetNotes(desc);
+  const encodedPayload = JSON.stringify(payload);
+  if (/json/i.test(notes.contentType)) {
+    return `${notes.method} ${notes.path} HTTP/1.1\nContent-Type: application/json\n\n{\n  "${notes.parameter}": ${encodedPayload}\n}`;
+  }
+  if (notes.method === "GET") {
+    const sep = notes.path.includes("?") ? "&" : "?";
+    const path = notes.path.includes(`${notes.parameter}=`) ?
+      notes.path.replace(new RegExp(`(${escapeRegExp(notes.parameter)}=)[^&]*`), `$1${encodeURIComponent(payload)}`) :
+      `${notes.path}${sep}${encodeURIComponent(notes.parameter)}=${encodeURIComponent(payload)}`;
+    return `${notes.method} ${path} HTTP/1.1`;
+  }
+  return `${notes.method} ${notes.path} HTTP/1.1\nContent-Type: application/x-www-form-urlencoded\n\n${encodeURIComponent(notes.parameter)}=${encodeURIComponent(payload)}`;
+}
+
+function parseTargetNotes(desc) {
+  const methodPath = desc.match(/\b(GET|POST|PUT|PATCH|DELETE)\s+([^\s]+)/i);
+  const contentType = desc.match(/Content-Type\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
+  const parameter = desc.match(/Parameter\s*:\s*([A-Za-z0-9_.\-[\]]+)/i)?.[1]?.trim() ||
+    desc.match(/\b([A-Za-z0-9_.\-[\]]+)=FUZZ\b/i)?.[1]?.trim() ||
+    "value";
+  return {
+    method: (methodPath?.[1] || "POST").toUpperCase(),
+    path: methodPath?.[2] || "/",
+    contentType,
+    parameter,
+  };
+}
+
+function cleanRequestBlock(text) {
+  return text.replace(/```(?:http|json|text)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+}
+
+function isUsefulRequest(text) {
+  if (!text || isRefusal(text)) return false;
+  if (/payload_value|^[{[]\s*["']?payload/i.test(text)) return false;
+  return /^(GET|POST|PUT|PATCH|DELETE)\s+\S+\s+HTTP\/1\.1/im.test(text) ||
+    /\n\{\s*["'][^"']+["']\s*:/m.test(text) ||
+    /^[A-Za-z0-9_.\-[\]]+=/.test(text);
 }
 
 function usablePayloadLines(text) {
@@ -373,6 +424,10 @@ function shouldAddEncodedVariant(it, terms) {
 
 function addUnique(list, value) {
   if (value && !list.includes(value)) list.push(value);
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function mutatePayload(payload, catKey, terms, run) {

@@ -62,11 +62,11 @@ Content-Type: application/json
 Parameter: password
 Notes: suspected MySQL login check, single quotes appear to be filtered</textarea>
             <div class="gap">
-              <button id="r-gen" class="primary" title="Generate one catalog-based or model-assisted variant.">Generate one variant</button>
+              <button id="r-gen" class="primary" title="Generate one request-ready Repeater test.">Generate request</button>
               <button id="r-explain" disabled title="Load the local assistant, then click a catalog payload.">Explain selected</button>
               <button id="r-stop" disabled>Stop</button>
             </div>
-            <p class="hint">Generate one variant asks the local assistant first, then writes one clean payload value. If the output is not usable, the app creates one fresh catalog variant.</p>
+            <p class="hint">Generate request creates one Repeater-ready test with the payload inserted into the described parameter. If the model output is not usable, the app builds a clean request from the catalog.</p>
             <textarea id="r-out" class="out" placeholder="Local assistant output" style="margin-top:10px"></textarea>
             <div class="gap"><button id="r-copy">Copy output</button></div>
           </div>
@@ -153,8 +153,8 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
     <p>Use Intruder when you want a list. Pick filters, choose an encoding if needed, then copy or download the list for a Burp Intruder payload set.</p>
 
     <h3>Why Generate is disabled</h3>
-    <p><strong>Generate one variant</strong> and <strong>Add one variant</strong> ask the local assistant for a single payload value when a model is loaded. Some small browser models still output request blocks or refuse security-testing requests even when they are authorized. When that happens, the app extracts the first usable payload or creates one fresh catalog variant.</p>
-    <p>If your browser does not support WebGPU, generation still works from the catalog. Each click rotates and mutates the single variant so you are not stuck with the same output.</p>
+    <p><strong>Generate request</strong> creates one Repeater-ready HTTP test with the payload inserted into the parameter you described. <strong>Add one variant</strong> keeps Intruder simple by appending one payload line to the list.</p>
+    <p>If the local model refuses or produces poor output, the app builds a clean request or payload from the catalog. Each click rotates and mutates the choice so you are not stuck with the same output.</p>
 
     <h3>What variants are</h3>
     <p>Variants are extra payload ideas based on the notes in the text box, such as a JSON login request, a blocked quote character, or a reflected search parameter.</p>
@@ -169,6 +169,6 @@ Goal: build a compact XSS payload set for Burp Intruder</textarea>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script type="module" src="app.js?v=20260530-onevariant"></script>
+<script type="module" src="app.js?v=20260530-requestgen"></script>
 </body>
 </html>
