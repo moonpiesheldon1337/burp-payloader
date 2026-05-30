@@ -28,7 +28,7 @@ function pickModels() {
 function fillModels() {
   const ids = pickModels();
   if (!navigator.gpu) {
-    el.status.textContent = "this browser has no WebGPU — use Chrome/Edge/Brave to run the model";
+    el.status.textContent = "this browser has no WebGPU - use Chrome/Edge/Brave to run the model";
     el.load.disabled = true;
   }
   if (!ids.length) {

@@ -56,7 +56,10 @@
       <div class="box">
         <h3>Adapt to target</h3>
         <div class="body">
-          <textarea id="r-target" placeholder="POST /login, JSON body, suspected MySQL, quote filtering"></textarea>
+          <textarea id="r-target" placeholder="POST /login, JSON body, suspected MySQL, quote filtering">POST /login
+Content-Type: application/json
+Parameter: password
+Notes: suspected MySQL login check, single quotes appear to be filtered</textarea>
           <div class="gap">
             <button id="r-gen" class="primary" disabled>Generate variants</button>
             <button id="r-explain" disabled>Explain selected</button>
@@ -113,7 +116,10 @@
       <div class="box">
         <h3>Expand locally</h3>
         <div class="body">
-          <textarea id="i-target" placeholder="Parameter, endpoint, content type, and relevant filters"></textarea>
+          <textarea id="i-target" placeholder="Parameter, endpoint, content type, and relevant filters">GET /search?q=FUZZ
+Parameter: q
+Context: reflected in HTML body
+Goal: build a compact XSS payload set for Burp Intruder</textarea>
           <div class="gap">
             <button id="i-gen" class="primary" disabled>Add variants</button>
             <button id="i-stop" disabled>Stop</button>
